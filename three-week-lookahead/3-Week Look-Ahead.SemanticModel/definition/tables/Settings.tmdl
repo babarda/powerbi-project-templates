@@ -1,0 +1,65 @@
+/// One row read from the Settings sheet: project name, data date and template options.
+table Settings
+	lineageTag: 0d3b47f5-babe-5b07-b48b-4b9dd56aec5d
+
+	column 'Project Name'
+		dataType: string
+		lineageTag: 2df8894b-00d4-5a9c-8c6c-aa96a70feec7
+		summarizeBy: none
+		sourceColumn: Project Name
+
+	column 'Data Date'
+		dataType: dateTime
+		formatString: dd mmm yyyy
+		lineageTag: 57107e97-151a-547e-b4e3-83d4093bc42b
+		summarizeBy: none
+		sourceColumn: Data Date
+
+	column 'Look-ahead Weeks'
+		dataType: int64
+		lineageTag: a5825362-8f1e-5ec5-819a-8a61a55cf878
+		summarizeBy: none
+		sourceColumn: Look-ahead Weeks
+
+	/// Status date of the report. Settings[Data Date], or today when the cell is empty.
+	measure 'Data Date Used' =
+			VAR d = MAX ( Settings[Data Date] )
+			RETURN IF ( ISBLANK ( d ), TODAY (), d )
+		formatString: dd mmm yyyy
+		lineageTag: 24c9b20c-a92b-5c8a-a352-813e1eb7764c
+
+	/// Header line: project name and data date.
+	measure 'Report Subtitle' = MAX ( Settings[Project Name] ) & "   |   Data date " & FORMAT ( [Data Date Used], "dd mmm yyyy" )
+		lineageTag: e4be4db4-006d-57d6-9757-fa6c1580d4dd
+
+	/// First day of the look-ahead: the Monday after the data date (the data date itself when it is a Monday).
+	measure 'Window Start' =
+			VAR dd = [Data Date Used]
+			RETURN dd + MOD ( 8 - WEEKDAY ( dd, 2 ), 7 )
+		formatString: ddd dd mmm yyyy
+		lineageTag: 44b5cf9b-87cf-572a-a0d8-56e3c42b68c5
+
+	/// Last day of the look-ahead window.
+	measure 'Window End' =
+			VAR w = MAX ( Settings[Look-ahead Weeks] )
+			RETURN [Window Start] + 7 * IF ( ISBLANK ( w ), 3, w ) - 1
+		formatString: ddd dd mmm yyyy
+		lineageTag: bb2380cf-2ead-594d-85c7-354cd8430fb3
+
+	/// Header line: project, data date and window.
+	measure 'Window Subtitle' = MAX ( Settings[Project Name] ) & "   |   Data date " & FORMAT ( [Data Date Used], "dd mmm yyyy" ) & "   |   Window " & FORMAT ( [Window Start], "dd mmm" ) & " to " & FORMAT ( [Window End], "dd mmm yyyy" )
+		lineageTag: 3fe5948f-05b8-5195-a130-8b8afdc191c9
+
+	partition Settings = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Settings",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Project Name", type text}, {"Data Date", type date}, {"Look-ahead Weeks", Int64.Type}}),
+				    FirstRow = Table.FirstN(Table.SelectRows(Typed, each [Project Name] <> null), 1)
+				in
+				    FirstRow
+
+	annotation PBI_Id = Settings

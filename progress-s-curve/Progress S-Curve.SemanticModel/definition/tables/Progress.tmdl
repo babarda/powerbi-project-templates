@@ -1,0 +1,204 @@
+/// One row per week, discipline and area: planned, earned and forecast hours.
+table Progress
+	lineageTag: 89e7718b-a9e0-5350-94dc-309871a5899d
+
+	column 'Week Ending'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 524f0bec-fe38-5372-8808-f538be686608
+		summarizeBy: none
+		sourceColumn: Week Ending
+
+	column Discipline
+		dataType: string
+		lineageTag: acd59763-85c1-57a9-8bf2-af3a6bf1fac6
+		summarizeBy: none
+		sourceColumn: Discipline
+
+	column Area
+		dataType: string
+		lineageTag: f90fc4a8-d93c-5c2a-955a-40c8f8bcd704
+		summarizeBy: none
+		sourceColumn: Area
+
+	column 'Planned Hours'
+		dataType: double
+		formatString: #,0
+		lineageTag: 39d04895-d89c-5c4c-8d34-b7d8e983d84e
+		summarizeBy: sum
+		sourceColumn: Planned Hours
+
+	column 'Earned Hours'
+		dataType: double
+		formatString: #,0
+		lineageTag: ab8ee168-b1b2-50e4-b91b-e5bc3edb52db
+		summarizeBy: sum
+		sourceColumn: Earned Hours
+
+	column 'Forecast Hours'
+		dataType: double
+		formatString: #,0
+		lineageTag: d3f421b6-e3f8-544c-b30e-4f40a7ed1681
+		summarizeBy: sum
+		sourceColumn: Forecast Hours
+
+	/// Budget at completion in hours: all planned hours of the selection, every week.
+	measure 'Budget Hours' = CALCULATE ( SUM ( Progress[Planned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ) )
+		formatString: #,0
+		displayFolder: Base
+		lineageTag: 3294694c-9c9a-5524-8911-17ddaae87ada
+
+	/// Last week ending on or before the data date. Actuals stop here, the forecast starts here.
+	measure 'Last Actual Week' =
+			VAR dd = [Data Date Used]
+			RETURN CALCULATE ( MAX ( Progress[Week Ending] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= dd )
+		formatString: dd mmm yyyy
+		displayFolder: Base
+		lineageTag: 8f19219b-9f74-5269-9eab-141c68e9c586
+
+	/// Baseline cumulative progress: planned hours up to the week / budget hours.
+	measure 'Planned % Cum' =
+			VAR w = MAX ( Progress[Week Ending] )
+			RETURN DIVIDE ( CALCULATE ( SUM ( Progress[Planned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= w ), [Budget Hours] )
+		formatString: 0.0%
+		displayFolder: S-curve
+		lineageTag: 43e42fdb-9472-5fc3-9201-774ce4eb0dbe
+
+	/// Actual cumulative progress: earned hours up to the week / budget hours. Blank after the data date.
+	measure 'Actual % Cum' =
+			VAR w = MAX ( Progress[Week Ending] )
+			VAR lw = [Last Actual Week]
+			RETURN
+			    IF ( w <= lw,
+			        DIVIDE ( CALCULATE ( SUM ( Progress[Earned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= w ), [Budget Hours] ) )
+		formatString: 0.0%
+		displayFolder: S-curve
+		lineageTag: 17a5df42-dc70-5212-9372-7100d4d6e72d
+
+	/// Forecast cumulative progress: earned hours to the data date plus forecast hours after it, / budget hours. Starts at the data date.
+	measure 'Forecast % Cum' =
+			VAR w = MAX ( Progress[Week Ending] )
+			VAR lw = [Last Actual Week]
+			VAR earned = CALCULATE ( SUM ( Progress[Earned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= lw )
+			VAR fc = CALCULATE ( SUM ( Progress[Forecast Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] > lw, Progress[Week Ending] <= w )
+			RETURN IF ( w >= lw, DIVIDE ( earned + fc, [Budget Hours] ) )
+		formatString: 0.0%
+		displayFolder: S-curve
+		lineageTag: 13c1c47b-7bb4-5c8a-8c0f-43e9e09203ca
+
+	/// Share of the budget planned in the week.
+	measure 'Planned % Week' = DIVIDE ( SUM ( Progress[Planned Hours] ), [Budget Hours] )
+		formatString: 0.0%
+		displayFolder: S-curve
+		lineageTag: 85ee224d-44a6-56ca-8873-0b2cede53237
+
+	/// Share of the budget earned in the week. Blank after the data date.
+	measure 'Actual % Week' =
+			VAR w = MAX ( Progress[Week Ending] )
+			RETURN IF ( w <= [Last Actual Week], DIVIDE ( SUM ( Progress[Earned Hours] ), [Budget Hours] ) )
+		formatString: 0.0%
+		displayFolder: S-curve
+		lineageTag: e102849e-1aee-5bce-a02c-76c9ffb09ce3
+
+	/// Planned cumulative progress at the data date.
+	measure 'Planned % To Date' =
+			VAR lw = [Last Actual Week]
+			RETURN DIVIDE ( CALCULATE ( SUM ( Progress[Planned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= lw ), [Budget Hours] )
+		formatString: 0.0%
+		displayFolder: KPI
+		lineageTag: af1744af-dc3d-52b5-9bb0-923826f0c94b
+
+	/// Actual cumulative progress at the data date.
+	measure 'Actual % To Date' =
+			VAR lw = [Last Actual Week]
+			RETURN DIVIDE ( CALCULATE ( SUM ( Progress[Earned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= lw ), [Budget Hours] )
+		formatString: 0.0%
+		displayFolder: KPI
+		lineageTag: ba57b152-3684-5e5e-98a0-8ad5db89b6fd
+
+	/// Actual minus planned progress at the data date, in percentage points. Negative = behind.
+	measure 'Variance To Date' = [Actual % To Date] - [Planned % To Date]
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: KPI
+		lineageTag: 46bdbfb6-879f-5281-8c15-90c317215e21
+
+	/// Schedule performance index = earned hours / planned hours, both cumulative to the data date. 1.00 = on plan, below 1 = behind.
+	measure SPI =
+			VAR lw = [Last Actual Week]
+			VAR ev = CALCULATE ( SUM ( Progress[Earned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= lw )
+			VAR pv = CALCULATE ( SUM ( Progress[Planned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= lw )
+			RETURN DIVIDE ( ev, pv )
+		formatString: 0.00
+		displayFolder: KPI
+		lineageTag: 123b7e2a-8e09-55a5-8b67-8851d59ac736
+
+	/// Traffic light for SPI: green from 0.95, amber from 0.90, red below.
+	measure 'SPI Color' =
+			VAR v = [SPI]
+			RETURN SWITCH ( TRUE (), ISBLANK ( v ), "#AAAAAA", v >= 0.95, "#339966", v >= 0.90, "#E08A00", "#D63A2F" )
+		displayFolder: Format
+		lineageTag: 4718979e-be9e-56e1-ae59-06a1077eefba
+
+	/// Traffic light for the variance: green down to -2 points, amber down to -5, red below.
+	measure 'Variance Color' =
+			VAR v = [Variance To Date]
+			RETURN SWITCH ( TRUE (), ISBLANK ( v ), "#AAAAAA", v >= -0.02, "#339966", v >= -0.05, "#E08A00", "#D63A2F" )
+		displayFolder: Format
+		lineageTag: ce1f2b7b-2cf4-5322-b944-e6eb3dea2d0f
+
+	/// Last week with planned hours in the baseline.
+	measure 'Planned Finish' = CALCULATE ( MAX ( Progress[Week Ending] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Planned Hours] > 0 )
+		formatString: dd mmm yyyy
+		displayFolder: KPI
+		lineageTag: 62c6aa88-15e0-5606-a458-5e2ab60ebeae
+
+	/// First week where the forecast curve reaches 99.9% of the budget.
+	measure 'Forecast Finish' =
+			VAR lw = [Last Actual Week]
+			VAR bud = [Budget Hours]
+			VAR earned = CALCULATE ( SUM ( Progress[Earned Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] <= lw )
+			VAR weeks =
+			    FILTER ( CALCULATETABLE ( VALUES ( Progress[Week Ending] ), REMOVEFILTERS ( Progress[Week Ending] ) ), Progress[Week Ending] > lw )
+			VAR withCum =
+			    ADDCOLUMNS ( weeks, "@cum",
+			        VAR w = Progress[Week Ending]
+			        RETURN earned + CALCULATE ( SUM ( Progress[Forecast Hours] ), REMOVEFILTERS ( Progress[Week Ending] ), Progress[Week Ending] > lw, Progress[Week Ending] <= w ) )
+			RETURN
+			    IF ( earned >= bud * 0.999, lw, MINX ( FILTER ( withCum, [@cum] >= bud * 0.999 ), Progress[Week Ending] ) )
+		formatString: dd mmm yyyy
+		displayFolder: KPI
+		lineageTag: 4d7c296b-d43a-5a3f-956c-ef274e608321
+
+	/// Forecast finish minus planned finish, in weeks. Positive = late.
+	measure 'Finish Slip Weeks' = DIVIDE ( INT ( [Forecast Finish] - [Planned Finish] ), 7 )
+		formatString: +0;-0;0
+		displayFolder: KPI
+		lineageTag: 0c379c9f-153f-5b61-9e2e-ab969895c86f
+
+	/// Forecast finish date and its slip against the baseline finish, in weeks.
+	measure 'Finish Slip Label' =
+			VAR w = [Finish Slip Weeks]
+			RETURN FORMAT ( [Forecast Finish], "dd mmm yy" ) & IF ( ISBLANK ( w ), "", "  (" & FORMAT ( w, "+0;-0;0" ) & " wk)" )
+		displayFolder: KPI
+		lineageTag: bb86b06e-ebfd-5738-8935-3b83e7afca00
+
+	/// Green on or before the baseline finish, amber up to 4 weeks late, red beyond.
+	measure 'Finish Color' =
+			VAR w = [Finish Slip Weeks]
+			RETURN SWITCH ( TRUE (), ISBLANK ( w ), "#AAAAAA", w <= 0, "#339966", w <= 4, "#E08A00", "#D63A2F" )
+		displayFolder: Format
+		lineageTag: f586c2ad-3af7-5310-ac66-565ac287b7c9
+
+	partition Progress = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Progress",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Week Ending", type date}, {"Discipline", type text}, {"Area", type text}, {"Planned Hours", type number}, {"Earned Hours", type number}, {"Forecast Hours", type number}}),
+				    Clean = Table.SelectRows(Typed, each [Week Ending] <> null and [Discipline] <> null)
+				in
+				    Clean
+
+	annotation PBI_Id = Progress

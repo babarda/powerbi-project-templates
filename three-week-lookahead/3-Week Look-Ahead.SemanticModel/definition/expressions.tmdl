@@ -1,0 +1,6 @@
+/// Full path of the Excel workbook that feeds this report (sample_data.xlsx or your own copy).
+expression DataFile = "C:\PowerBI-Templates\three-week-lookahead\sample_data.xlsx" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 7df0a97d-b41b-5f6d-b7c6-6e0e1602a70e
+
+	annotation PBI_ResultType = Text
+

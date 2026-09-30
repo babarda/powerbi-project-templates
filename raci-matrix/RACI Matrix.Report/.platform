@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "RACI Matrix"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "564cc962-777f-5f30-b3b0-d0f4d59c2b5d"
+  }
+}

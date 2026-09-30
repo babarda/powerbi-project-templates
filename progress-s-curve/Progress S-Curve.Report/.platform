@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "Progress S-Curve"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "d89e6861-4af2-56e4-9952-2863e6c92419"
+  }
+}

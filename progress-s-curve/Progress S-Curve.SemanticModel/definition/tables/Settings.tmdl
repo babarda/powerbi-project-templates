@@ -1,0 +1,41 @@
+/// One row read from the Settings sheet: project name, data date and template options.
+table Settings
+	lineageTag: 803ba4c8-dc09-5f70-ab42-401f15d9ec55
+
+	column 'Project Name'
+		dataType: string
+		lineageTag: cbdea93f-5b9c-591f-b5c3-834fe526356e
+		summarizeBy: none
+		sourceColumn: Project Name
+
+	column 'Data Date'
+		dataType: dateTime
+		formatString: dd mmm yyyy
+		lineageTag: ecfcff33-a702-5fc2-8f20-0c6728963ba7
+		summarizeBy: none
+		sourceColumn: Data Date
+
+	/// Status date of the report. Settings[Data Date], or today when the cell is empty.
+	measure 'Data Date Used' =
+			VAR d = MAX ( Settings[Data Date] )
+			RETURN IF ( ISBLANK ( d ), TODAY (), d )
+		formatString: dd mmm yyyy
+		lineageTag: d6c7fa90-4c05-548f-b2c0-564212e50e34
+
+	/// Header line: project name and data date.
+	measure 'Report Subtitle' = MAX ( Settings[Project Name] ) & "   |   Data date " & FORMAT ( [Data Date Used], "dd mmm yyyy" )
+		lineageTag: 271355ff-4c39-55c7-8651-1830fcae86be
+
+	partition Settings = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Settings",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Project Name", type text}, {"Data Date", type date}}),
+				    FirstRow = Table.FirstN(Table.SelectRows(Typed, each [Project Name] <> null), 1)
+				in
+				    FirstRow
+
+	annotation PBI_Id = Settings

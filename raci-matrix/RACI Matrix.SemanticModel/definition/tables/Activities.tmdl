@@ -1,0 +1,101 @@
+/// One row per activity: the first three columns of the RACI sheet.
+table Activities
+	lineageTag: 14211c43-59e4-5ac8-a56c-96c5af5b4ec6
+
+	column 'Activity ID'
+		dataType: string
+		lineageTag: a949e5f1-5f56-568b-83c7-8005d8c80aa3
+		summarizeBy: none
+		sourceColumn: Activity ID
+
+	column Activity
+		dataType: string
+		lineageTag: 1f01c737-5a7b-58c9-981e-67b4c436d3d0
+		summarizeBy: none
+		sourceColumn: Activity
+
+	column Phase
+		dataType: string
+		lineageTag: 76040f03-3776-5853-b3d5-54605b25dc6f
+		summarizeBy: none
+		sourceColumn: Phase
+
+	column 'Activity Order'
+		dataType: int64
+		isHidden
+		lineageTag: 3cb6ec50-ed46-5abd-8ed8-c06ff5ba1068
+		summarizeBy: none
+		sourceColumn: Activity Order
+
+	/// Activity ID and name, in sheet order.
+	column 'Activity Label' = Activities[Activity ID] & "  " & Activities[Activity]
+		dataType: string
+		lineageTag: f4a084dd-0229-5ccf-be7c-c413d238a380
+		summarizeBy: none
+		sortByColumn: 'Activity Order'
+
+	/// Number of roles marked Accountable on the activity.
+	column 'A Count' = CALCULATE ( COUNTROWS ( RACI ), RACI[Code] = "A" ) + 0
+		dataType: int64
+		lineageTag: 5577f2aa-ebe6-54d7-84fb-664737a080c8
+		summarizeBy: sum
+
+	/// Number of roles marked Responsible on the activity.
+	column 'R Count' = CALCULATE ( COUNTROWS ( RACI ), RACI[Code] = "R" ) + 0
+		dataType: int64
+		lineageTag: cfd3574e-a075-543e-8259-95cf9d1e9db0
+		summarizeBy: sum
+
+	/// Rule check: exactly one A and at least one R per activity.
+	column Check =
+			SWITCH ( TRUE (),
+			    Activities[A Count] = 0, "No Accountable",
+			    Activities[A Count] > 1, "More than one Accountable",
+			    Activities[R Count] = 0, "No Responsible",
+			    "OK" )
+		dataType: string
+		lineageTag: 54d67468-2720-5bda-bb9d-697576e831e2
+		summarizeBy: none
+
+	column 'Has Issue' = IF ( Activities[Check] = "OK", "No", "Yes" )
+		dataType: string
+		lineageTag: 96630a95-d6c0-5950-b85f-63a9de6f33e0
+		summarizeBy: none
+
+	/// Number of activities.
+	measure 'Activities Count' = COUNTROWS ( Activities )
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 7c6b061a-b068-5301-aa67-3017e139a741
+
+	/// Activities that break the rule: no A, several A, or no R.
+	measure Issues = CALCULATE ( COUNTROWS ( Activities ), Activities[Has Issue] = "Yes" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: b54c213f-f5e6-575f-8081-9d5cf829d222
+
+	/// Red when any activity fails the check.
+	measure 'Issues Color' = IF ( [Issues] > 0, "#D63A2F", "#339966" )
+		displayFolder: Format
+		lineageTag: 46b232ee-ff96-58c8-83e1-e87c2be70bc0
+
+	/// Font color for the check column.
+	measure 'Check Color' = IF ( SELECTEDVALUE ( Activities[Check] ) = "OK", "#339966", "#D63A2F" )
+		displayFolder: Format
+		lineageTag: eb2217a3-bbe6-5272-8ba3-f52b8c9bfedc
+
+	partition Activities = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="RACI",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Keep = Table.SelectColumns(Headers, {"Activity ID", "Activity", "Phase"}),
+				    Typed = Table.TransformColumnTypes(Keep, {{"Activity ID", type text}, {"Activity", type text}, {"Phase", type text}}),
+				    Clean = Table.SelectRows(Typed, each [Activity ID] <> null and [Activity ID] <> ""),
+				    Indexed = Table.AddIndexColumn(Clean, "Activity Order", 1, 1, Int64.Type)
+				in
+				    Indexed
+
+	annotation PBI_Id = Activities

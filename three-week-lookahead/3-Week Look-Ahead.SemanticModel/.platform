@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "3-Week Look-Ahead"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "d0160fe9-9506-5f81-87f0-d4f35abfc337"
+  }
+}

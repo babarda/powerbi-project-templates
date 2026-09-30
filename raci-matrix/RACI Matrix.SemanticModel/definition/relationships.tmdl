@@ -1,0 +1,8 @@
+relationship c5f03959-9efd-5dae-bc06-81d2c8d8b090
+	fromColumn: RACI.'Activity ID'
+	toColumn: Activities.'Activity ID'
+
+relationship 14e09035-1e1d-534d-8202-fffc39f3b90d
+	fromColumn: RACI.Role
+	toColumn: Roles.Role
+

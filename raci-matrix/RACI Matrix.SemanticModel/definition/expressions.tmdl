@@ -1,0 +1,6 @@
+/// Full path of the Excel workbook that feeds this report (sample_data.xlsx or your own copy).
+expression DataFile = "C:\PowerBI-Templates\raci-matrix\sample_data.xlsx" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 6e83b974-8618-5495-a78c-ba3edd2cbae3
+
+	annotation PBI_ResultType = Text
+

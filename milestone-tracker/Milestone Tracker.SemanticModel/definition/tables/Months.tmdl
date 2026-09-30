@@ -1,0 +1,35 @@
+/// Calculated calendar of months spanning every baseline and finish date.
+table Months
+	lineageTag: 6152bbbf-8c9a-5cb3-8633-70c20f5874a1
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: mmm yyyy
+		isNameInferred
+		lineageTag: d1334134-43e9-559a-84e0-adecc65a3da9
+		summarizeBy: none
+		sourceColumn: [Month Start]
+
+	column Month
+		dataType: string
+		isNameInferred
+		lineageTag: 2cf823ab-b98a-5d9b-9dc3-4463151d9933
+		summarizeBy: none
+		sourceColumn: [Month]
+		sortByColumn: 'Month Start'
+
+	partition Months = calculated
+		mode: import
+		source =
+				VAR mn0 = MIN ( MIN ( Milestones[Baseline Date] ), MIN ( Milestones[Finish Date] ) )
+				VAR mx0 = MAX ( MAX ( Milestones[Baseline Date] ), MAX ( Milestones[Finish Date] ) )
+				VAR mn = IF ( ISBLANK ( mn0 ), TODAY (), mn0 )
+				VAR mx = IF ( ISBLANK ( mx0 ), TODAY (), mx0 )
+				RETURN
+				    SELECTCOLUMNS (
+				        FILTER ( CALENDAR ( DATE ( YEAR ( mn ), MONTH ( mn ), 1 ), EOMONTH ( mx, 0 ) ), DAY ( [Date] ) = 1 ),
+				        "Month Start", [Date],
+				        "Month", FORMAT ( [Date], "mmm" ) & " " & FORMAT ( [Date], "yy" )
+				    )
+
+	annotation PBI_Id = Months

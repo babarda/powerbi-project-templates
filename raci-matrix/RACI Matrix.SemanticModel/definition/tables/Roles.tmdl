@@ -1,0 +1,38 @@
+/// One row per role: every column header after Phase on the RACI sheet.
+table Roles
+	lineageTag: a25a434c-bab1-5e28-82d4-eafa53fdc1cf
+
+	column Role
+		dataType: string
+		lineageTag: 614316fd-4660-5589-85f1-e98a6738cce3
+		summarizeBy: none
+		sourceColumn: Role
+		sortByColumn: 'Role Order'
+
+	column 'Role Order'
+		dataType: int64
+		isHidden
+		lineageTag: 716cef65-540d-5c32-9da4-b715bfb4c732
+		summarizeBy: none
+		sourceColumn: Role Order
+
+	/// Number of roles (columns) in the matrix.
+	measure 'Roles Count' = COUNTROWS ( Roles )
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 5909700e-8146-5ee6-a327-06c912b3eec9
+
+	partition Roles = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="RACI",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Names = List.Select(List.Skip(Table.ColumnNames(Headers), 3), each not Text.StartsWith(_, "Column")),
+				    AsTable = Table.FromColumns({Names}, type table [Role = text]),
+				    Indexed = Table.AddIndexColumn(AsTable, "Role Order", 1, 1, Int64.Type)
+				in
+				    Indexed
+
+	annotation PBI_Id = Roles

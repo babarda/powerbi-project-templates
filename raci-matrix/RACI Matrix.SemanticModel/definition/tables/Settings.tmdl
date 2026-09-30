@@ -1,0 +1,27 @@
+/// One row read from the Settings sheet: project name.
+table Settings
+	lineageTag: 4adfffef-8a67-5215-b3d0-c623f57ffbbb
+
+	column 'Project Name'
+		dataType: string
+		lineageTag: e27a940e-045c-53b1-8009-39f9f8ac2191
+		summarizeBy: none
+		sourceColumn: Project Name
+
+	/// Header line: project name and code legend.
+	measure 'Report Subtitle' = MAX ( Settings[Project Name] ) & "   |   R = Responsible, A = Accountable, C = Consulted, I = Informed"
+		lineageTag: 5aea47e6-84d7-53eb-8092-2c5e83dea823
+
+	partition Settings = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Settings",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Project Name", type text}}),
+				    FirstRow = Table.FirstN(Table.SelectRows(Typed, each [Project Name] <> null), 1)
+				in
+				    FirstRow
+
+	annotation PBI_Id = Settings

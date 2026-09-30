@@ -1,0 +1,104 @@
+/// One row per activity, role and code: the RACI sheet unpivoted.
+table RACI
+	lineageTag: 80413662-5c20-5335-9e21-a79b85327c15
+
+	column 'Activity ID'
+		dataType: string
+		lineageTag: a9ee781b-b714-5f8d-b100-40083679b330
+		summarizeBy: none
+		sourceColumn: Activity ID
+
+	column Role
+		dataType: string
+		lineageTag: 3c7820a6-9bc4-5e3b-8636-37bacb334382
+		summarizeBy: none
+		sourceColumn: Role
+
+	column Code
+		dataType: string
+		lineageTag: 86122164-d387-5045-9019-fcfdb249ef8d
+		summarizeBy: none
+		sourceColumn: Code
+
+	column 'Code Order' = SWITCH ( RACI[Code], "A", 1, "R", 2, "C", 3, "I", 4, 9 )
+		dataType: int64
+		isHidden
+		lineageTag: 4f6f3bf9-477a-5327-ae81-860c8c5d8f9e
+		summarizeBy: none
+
+	/// Number of R, A, C and I entries.
+	measure Assignments = COUNTROWS ( RACI )
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: c2bc40fd-2f43-5bd4-b17a-552b68820627
+
+	/// Codes of the role on the activity, for example A/R.
+	measure 'RACI Code' = CONCATENATEX ( SUMMARIZE ( RACI, RACI[Code], RACI[Code Order] ), RACI[Code], "/", RACI[Code Order], ASC )
+		displayFolder: Matrix
+		lineageTag: 25c57a05-c6ac-527e-905f-f398896918ee
+
+	/// Number of activities where the role is Responsible.
+	measure 'R (Responsible)' = CALCULATE ( COUNTROWS ( RACI ), RACI[Code] = "R" )
+		formatString: 0
+		displayFolder: Workload
+		lineageTag: dbedcb91-bbb3-5a1f-88bf-51579d730392
+
+	/// Number of activities where the role is Accountable.
+	measure 'A (Accountable)' = CALCULATE ( COUNTROWS ( RACI ), RACI[Code] = "A" )
+		formatString: 0
+		displayFolder: Workload
+		lineageTag: 33f2058f-4c15-521f-a978-f8a706007820
+
+	/// Number of activities where the role is Consulted.
+	measure 'C (Consulted)' = CALCULATE ( COUNTROWS ( RACI ), RACI[Code] = "C" )
+		formatString: 0
+		displayFolder: Workload
+		lineageTag: b4bd674a-6c99-5d15-9564-08a162890bd7
+
+	/// Number of activities where the role is Informed.
+	measure 'I (Informed)' = CALCULATE ( COUNTROWS ( RACI ), RACI[Code] = "I" )
+		formatString: 0
+		displayFolder: Workload
+		lineageTag: 010d4e17-86f0-5c08-9a1c-f6bb3ef1ad13
+
+	/// Cell fill: A dark teal, R teal, C light teal, I grey.
+	measure 'RACI Cell Color' =
+			VAR c = [RACI Code]
+			RETURN
+			    SWITCH ( TRUE (),
+			        ISBLANK ( c ), "#FFFFFF",
+			        CONTAINSSTRING ( c, "A" ), "#005F5F",
+			        CONTAINSSTRING ( c, "R" ), "#008080",
+			        CONTAINSSTRING ( c, "C" ), "#B7DCDC",
+			        "#E9ECEC" )
+		displayFolder: Format
+		lineageTag: 217272a6-470d-50a5-8342-0148ca5eb989
+
+	/// White text on A and R cells, dark text elsewhere.
+	measure 'RACI Font Color' =
+			VAR c = [RACI Code]
+			RETURN IF ( CONTAINSSTRING ( c, "A" ) || CONTAINSSTRING ( c, "R" ), "#FFFFFF", "#222222" )
+		displayFolder: Format
+		lineageTag: 9adae2a0-2f80-5b8f-b572-d364979aa4b5
+
+	partition RACI = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="RACI",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Clean = Table.SelectRows(Headers, each [Activity ID] <> null and [Activity ID] <> ""),
+				    Roles = List.Select(List.Skip(Table.ColumnNames(Clean), 3), each not Text.StartsWith(_, "Column")),
+				    Slim = Table.SelectColumns(Clean, {"Activity ID"} & Roles),
+				    AsText = Table.TransformColumns(Slim, List.Transform({"Activity ID"} & Roles, (c) => {c, each if _ = null then null else Text.From(_), type nullable text})),
+				    Long = Table.UnpivotOtherColumns(AsText, {"Activity ID"}, "Role", "Codes"),
+				    Lists = Table.TransformColumns(Long, {{"Codes", each List.Select(List.Transform(Text.SplitAny(_, "/,;+ "), (x) => Text.Upper(Text.Trim(x))), (x) => x <> ""), type list}}),
+				    Expanded = Table.ExpandListColumn(Lists, "Codes"),
+				    Renamed = Table.RenameColumns(Expanded, {{"Codes", "Code"}}),
+				    Valid = Table.SelectRows(Renamed, each List.Contains({"R", "A", "C", "I"}, [Code])),
+				    Typed = Table.TransformColumnTypes(Valid, {{"Activity ID", type text}, {"Role", type text}, {"Code", type text}})
+				in
+				    Typed
+
+	annotation PBI_Id = RACI

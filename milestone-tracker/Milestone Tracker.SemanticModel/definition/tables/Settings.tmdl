@@ -1,0 +1,52 @@
+/// One row read from the Settings sheet: project name, data date and template options.
+table Settings
+	lineageTag: 08b78e86-fb80-54c1-976a-d9ad60e388fd
+
+	column 'Project Name'
+		dataType: string
+		lineageTag: b59d1485-c15a-5236-a60c-4676cd6ca736
+		summarizeBy: none
+		sourceColumn: Project Name
+
+	column 'Data Date'
+		dataType: dateTime
+		formatString: dd mmm yyyy
+		lineageTag: c4983c92-40cc-5065-949f-81b41574cdbd
+		summarizeBy: none
+		sourceColumn: Data Date
+
+	column 'Late Threshold Days'
+		dataType: int64
+		lineageTag: 0a5970b8-c714-5b59-827f-285b071a3c5d
+		summarizeBy: none
+		sourceColumn: Late Threshold Days
+
+	/// Status date of the report. Settings[Data Date], or today when the cell is empty.
+	measure 'Data Date Used' =
+			VAR d = MAX ( Settings[Data Date] )
+			RETURN IF ( ISBLANK ( d ), TODAY (), d )
+		formatString: dd mmm yyyy
+		lineageTag: 8e1557c7-b7d7-5532-94e3-e3c435ad7869
+
+	/// Header line: project name and data date.
+	measure 'Report Subtitle' = MAX ( Settings[Project Name] ) & "   |   Data date " & FORMAT ( [Data Date Used], "dd mmm yyyy" )
+		lineageTag: a6c05673-47c7-571c-a025-cfc6fa87ad4d
+
+	/// Slip in days above which an open milestone is Late. Default 30.
+	measure 'Late Threshold' = VAR t = MAX ( Settings[Late Threshold Days] ) RETURN IF ( ISBLANK ( t ), 30, t )
+		formatString: 0
+		lineageTag: 87b04d84-957b-5553-a445-58426fbe594a
+
+	partition Settings = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Settings",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Project Name", type text}, {"Data Date", type date}, {"Late Threshold Days", Int64.Type}}),
+				    FirstRow = Table.FirstN(Table.SelectRows(Typed, each [Project Name] <> null), 1)
+				in
+				    FirstRow
+
+	annotation PBI_Id = Settings

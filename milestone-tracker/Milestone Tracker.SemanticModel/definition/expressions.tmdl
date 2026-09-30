@@ -1,0 +1,6 @@
+/// Full path of the Excel workbook that feeds this report (sample_data.xlsx or your own copy).
+expression DataFile = "C:\PowerBI-Templates\milestone-tracker\sample_data.xlsx" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 748c8238-133d-51c4-b05e-b44f1e6f8945
+
+	annotation PBI_ResultType = Text
+

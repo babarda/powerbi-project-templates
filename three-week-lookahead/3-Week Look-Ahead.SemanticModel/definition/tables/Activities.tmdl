@@ -1,0 +1,204 @@
+/// One row per schedule activity.
+table Activities
+	lineageTag: ceeabcb2-f19d-546c-8e3a-4e15f425a6db
+
+	column 'Activity ID'
+		dataType: string
+		lineageTag: b814bb11-a3ee-50f6-adeb-c151c89dcf15
+		summarizeBy: none
+		sourceColumn: Activity ID
+
+	column Activity
+		dataType: string
+		lineageTag: 2230576e-47b4-5be5-95c0-2527284d8a37
+		summarizeBy: none
+		sourceColumn: Activity
+
+	column Area
+		dataType: string
+		lineageTag: b879c936-8b6d-5268-98ce-9559a90f77dc
+		summarizeBy: none
+		sourceColumn: Area
+
+	column Owner
+		dataType: string
+		lineageTag: 8fd7573e-68c1-5950-af39-b0cf60d3a3e7
+		summarizeBy: none
+		sourceColumn: Owner
+
+	column 'Start Date'
+		dataType: dateTime
+		formatString: ddd dd mmm
+		lineageTag: aa66f530-68ae-531e-a717-7ee265e5591c
+		summarizeBy: none
+		sourceColumn: Start Date
+
+	column 'Finish Date'
+		dataType: dateTime
+		formatString: ddd dd mmm
+		lineageTag: 78fb536b-5b0c-56fe-8f16-ef65aacf560c
+		summarizeBy: none
+		sourceColumn: Finish Date
+
+	column '% Complete'
+		dataType: double
+		formatString: 0%
+		lineageTag: b7f21300-9458-5cf8-acca-24de977d5170
+		summarizeBy: none
+		sourceColumn: % Complete
+
+	column Constraint
+		dataType: string
+		lineageTag: 7dd7cd93-a3d4-5eaf-87b3-453276abbeb3
+		summarizeBy: none
+		sourceColumn: Constraint
+
+	/// Yes when the activity is not complete and starts before the window ends (includes overdue work).
+	column 'In Window' =
+			VAR dd0 = MAX ( Settings[Data Date] )
+			VAR dd = IF ( ISBLANK ( dd0 ), TODAY (), dd0 )
+			VAR wk0 = MAX ( Settings[Look-ahead Weeks] )
+			VAR ws = dd + MOD ( 8 - WEEKDAY ( dd, 2 ), 7 )
+			VAR we = ws + 7 * IF ( ISBLANK ( wk0 ), 3, wk0 ) - 1
+			RETURN IF ( Activities[% Complete] < 1 && Activities[Start Date] <= we, "Yes", "No" )
+		dataType: string
+		lineageTag: 58d28043-d4df-5f11-84ee-c0a9d11ad260
+		summarizeBy: none
+
+	/// What the activity does in the window.
+	column Event =
+			VAR dd0 = MAX ( Settings[Data Date] )
+			VAR dd = IF ( ISBLANK ( dd0 ), TODAY (), dd0 )
+			VAR wk0 = MAX ( Settings[Look-ahead Weeks] )
+			VAR ws = dd + MOD ( 8 - WEEKDAY ( dd, 2 ), 7 )
+			VAR we = ws + 7 * IF ( ISBLANK ( wk0 ), 3, wk0 ) - 1
+			RETURN
+			    SWITCH ( TRUE (),
+			        Activities[Finish Date] < ws, "Overdue",
+			        Activities[Start Date] >= ws && Activities[Finish Date] <= we, "Starts and finishes",
+			        Activities[Start Date] >= ws, "Starts",
+			        Activities[Finish Date] <= we, "Finishes",
+			        "Runs through" )
+		dataType: string
+		lineageTag: deb28982-9976-57d3-b79e-fa9f1e3c65ec
+		summarizeBy: none
+
+	column 'Has Constraint' = IF ( LEN ( TRIM ( Activities[Constraint] ) ) > 0, "Yes", "No" )
+		dataType: string
+		lineageTag: c83fff58-cf25-5558-a2b2-4727e77a58d9
+		summarizeBy: none
+
+	column 'Start Order' = RANKX ( ALL ( Activities ), Activities[Start Date], , ASC, DENSE )
+		dataType: int64
+		isHidden
+		lineageTag: caa7f2b0-2eb0-5f9a-8039-2f55759e4c72
+		summarizeBy: none
+
+	/// Activity ID and name, sorted by start date.
+	column 'Activity Label' = Activities[Activity ID] & "  " & Activities[Activity]
+		dataType: string
+		lineageTag: 172405b3-262e-5e6d-a286-5335e940c44d
+		summarizeBy: none
+		sortByColumn: 'Start Order'
+
+	/// Open activities that touch the window, overdue ones included.
+	measure 'In Window Count' = CALCULATE ( COUNTROWS ( Activities ), Activities[In Window] = "Yes" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: ed5008d0-e883-5211-80f7-df9b2b6a674e
+
+	/// Activities that start inside the window.
+	measure Starting = CALCULATE ( COUNTROWS ( Activities ), Activities[In Window] = "Yes", Activities[Event] IN { "Starts", "Starts and finishes" } ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 7b639bbe-b99b-5a81-bba1-f22f6a322236
+
+	/// Activities that finish inside the window.
+	measure Finishing = CALCULATE ( COUNTROWS ( Activities ), Activities[In Window] = "Yes", Activities[Event] IN { "Finishes", "Starts and finishes" } ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: c955c2ec-3302-5f3b-be8b-efec609c02f2
+
+	/// Activities in the window that still carry a constraint.
+	measure 'Open Constraints' = CALCULATE ( COUNTROWS ( Activities ), Activities[In Window] = "Yes", Activities[Has Constraint] = "Yes" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 8dfb5b5e-b741-58d0-9283-68748c2a3794
+
+	/// Open activities whose finish date is before the window.
+	measure Overdue = CALCULATE ( COUNTROWS ( Activities ), Activities[In Window] = "Yes", Activities[Event] = "Overdue" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 9aa9a3e8-56ff-5e83-9340-271362bc5c4a
+
+	/// Amber when constraints are open.
+	measure 'Constraint Color' = IF ( [Open Constraints] > 0, "#E08A00", "#339966" )
+		displayFolder: Format
+		lineageTag: 65ed3e37-52e3-5596-a1f3-6c672f16e01e
+
+	/// Red when work is overdue.
+	measure 'Overdue Color' = IF ( [Overdue] > 0, "#D63A2F", "#339966" )
+		displayFolder: Format
+		lineageTag: 1bfa6eb1-4e6f-5cac-aed6-c87866e89195
+
+	/// Gantt cell text: diamond for a one-day activity, ! on the first day for overdue work, empty otherwise.
+	measure 'Gantt Cell' =
+			VAR d = MAX ( Days[Date] )
+			VAR s = MAX ( Activities[Start Date] )
+			VAR f = MAX ( Activities[Finish Date] )
+			VAR ws = MIN ( Days[Date] )
+			VAR onBar = d >= s && d <= f
+			VAR ws0 = CALCULATE ( MIN ( Days[Date] ), ALL ( Days ) )
+			VAR overdueCell = f < ws0 && d = ws0
+			RETURN
+			    IF ( HASONEVALUE ( Activities[Activity ID] ),
+			        SWITCH ( TRUE (), overdueCell, "!", onBar && s = f, UNICHAR ( 9670 ), "" ) )
+		displayFolder: Gantt
+		lineageTag: 4ef1d3ea-e6de-5207-b2a2-e9897e1e7d95
+
+	/// Gantt cell fill: teal bar, dark teal for the part done, amber when a constraint is open, red flag for overdue.
+	measure 'Gantt Color' =
+			VAR d = MAX ( Days[Date] )
+			VAR s = MAX ( Activities[Start Date] )
+			VAR f = MAX ( Activities[Finish Date] )
+			VAR ws = MIN ( Days[Date] )
+			VAR onBar = d >= s && d <= f
+			VAR ws0 = CALCULATE ( MIN ( Days[Date] ), ALL ( Days ) )
+			VAR overdueCell = f < ws0 && d = ws0
+			VAR weekend = WEEKDAY ( d, 2 ) > 5
+			VAR hasC = MAX ( Activities[Has Constraint] ) = "Yes"
+			VAR pct = MAX ( Activities[% Complete] )
+			VAR doneTo = s + pct * ( f - s + 1 )
+			RETURN
+			    SWITCH ( TRUE (),
+			        overdueCell, "#D63A2F",
+			        onBar && s = f, IF ( weekend, "#F1F3F3", "#FFFFFF" ),
+			        onBar && hasC, "#E08A00",
+			        onBar && d < doneTo, "#005F5F",
+			        onBar, "#46A3A3",
+			        weekend, "#F1F3F3",
+			        "#FFFFFF" )
+		displayFolder: Format
+		lineageTag: f41df36f-d8b8-5e5a-8394-0051de8229b5
+
+	/// Gantt text color: white on the overdue flag, amber or teal diamonds.
+	measure 'Gantt Font' =
+			VAR hasC = MAX ( Activities[Has Constraint] ) = "Yes"
+			RETURN IF ( [Gantt Cell] = "!", "#FFFFFF", IF ( hasC, "#E08A00", "#005F5F" ) )
+		displayFolder: Format
+		lineageTag: 2d5f9f31-2c84-5fbf-844a-00922aca0a27
+
+	partition Activities = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Activities",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Activity ID", type text}, {"Activity", type text}, {"Area", type text}, {"Owner", type text}, {"Start Date", type date}, {"Finish Date", type date}, {"% Complete", type number}, {"Constraint", type text}}),
+				    Clean = Table.SelectRows(Typed, each [Activity ID] <> null and [Activity ID] <> ""),
+				    NoNullPct = Table.ReplaceValue(Clean, null, 0, Replacer.ReplaceValue, {"% Complete"})
+				in
+				    NoNullPct
+
+	annotation PBI_Id = Activities

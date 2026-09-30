@@ -1,0 +1,147 @@
+{
+  "name": "KATA",
+  "dataColors": [
+    "#008080",
+    "#005F5F",
+    "#B7DCDC",
+    "#AAAAAA",
+    "#339966",
+    "#D63A2F",
+    "#E08A00"
+  ],
+  "foreground": "#222222",
+  "background": "#FFFFFF",
+  "tableAccent": "#008080",
+  "good": "#339966",
+  "bad": "#D63A2F",
+  "neutral": "#E08A00",
+  "textClasses": {
+    "callout": {
+      "fontFace": "Rethink Sans",
+      "color": "#222222",
+      "fontSize": 28
+    },
+    "title": {
+      "fontFace": "Rethink Sans",
+      "color": "#222222",
+      "fontSize": 14
+    },
+    "header": {
+      "fontFace": "Poppins",
+      "color": "#222222",
+      "fontSize": 12
+    },
+    "label": {
+      "fontFace": "Poppins",
+      "color": "#555555",
+      "fontSize": 10
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [
+          {
+            "color": {
+              "solid": {
+                "color": "#FFFFFF"
+              }
+            },
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "show": false,
+            "color": {
+              "solid": {
+                "color": "#E2E8E8"
+              }
+            }
+          }
+        ],
+        "title": [
+          {
+            "fontColor": {
+              "solid": {
+                "color": "#222222"
+              }
+            },
+            "fontFamily": "Rethink Sans",
+            "alignment": "left"
+          }
+        ],
+        "labels": [
+          {
+            "color": {
+              "solid": {
+                "color": "#555555"
+              }
+            }
+          }
+        ],
+        "categoryAxis": [
+          {
+            "labelColor": {
+              "solid": {
+                "color": "#555555"
+              }
+            },
+            "titleColor": {
+              "solid": {
+                "color": "#555555"
+              }
+            },
+            "gridlineColor": {
+              "solid": {
+                "color": "#EAEAEA"
+              }
+            }
+          }
+        ],
+        "valueAxis": [
+          {
+            "labelColor": {
+              "solid": {
+                "color": "#555555"
+              }
+            },
+            "titleColor": {
+              "solid": {
+                "color": "#555555"
+              }
+            },
+            "gridlineColor": {
+              "solid": {
+                "color": "#EAEAEA"
+              }
+            }
+          }
+        ],
+        "legend": [
+          {
+            "labelColor": {
+              "solid": {
+                "color": "#555555"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [
+          {
+            "color": {
+              "solid": {
+                "color": "#FFFFFF"
+              }
+            },
+            "transparency": 0
+          }
+        ]
+      }
+    }
+  }
+}

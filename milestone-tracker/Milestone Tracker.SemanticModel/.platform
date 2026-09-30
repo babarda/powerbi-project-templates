@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Milestone Tracker"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "cd21975e-2b5f-5da4-9d19-838ed7d40d85"
+  }
+}

@@ -1,0 +1,6 @@
+/// Full path of the Excel workbook that feeds this report (sample_data.xlsx or your own copy).
+expression DataFile = "C:\PowerBI-Templates\progress-s-curve\sample_data.xlsx" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: daf4456c-04c6-5554-8221-c05eb6f08ed8
+
+	annotation PBI_ResultType = Text
+

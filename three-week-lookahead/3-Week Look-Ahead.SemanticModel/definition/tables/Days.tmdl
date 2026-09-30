@@ -1,0 +1,43 @@
+/// Calculated calendar of the look-ahead window, one row per day.
+table Days
+	lineageTag: 7b517001-4150-5aac-b195-d4a9423bb7d4
+
+	column Date
+		dataType: dateTime
+		formatString: ddd dd mmm
+		isNameInferred
+		lineageTag: eb7e46ef-5c1e-5f3c-bbe8-fc14545e42a8
+		summarizeBy: none
+		sourceColumn: [Date]
+
+	column Day
+		dataType: string
+		isNameInferred
+		lineageTag: 05fcf4d1-49c3-5bf8-9adb-40368aec20c5
+		summarizeBy: none
+		sourceColumn: [Day]
+		sortByColumn: Date
+
+	column Week
+		dataType: string
+		isNameInferred
+		lineageTag: 0a749aff-63b2-5202-84c0-692352e0515e
+		summarizeBy: none
+		sourceColumn: [Week]
+
+	partition Days = calculated
+		mode: import
+		source =
+				VAR dd0 = MAX ( Settings[Data Date] )
+				VAR dd = IF ( ISBLANK ( dd0 ), TODAY (), dd0 )
+				VAR wk0 = MAX ( Settings[Look-ahead Weeks] )
+				VAR ws = dd + MOD ( 8 - WEEKDAY ( dd, 2 ), 7 )
+				VAR nDays = 7 * IF ( ISBLANK ( wk0 ), 3, wk0 )
+				RETURN
+				    ADDCOLUMNS (
+				        CALENDAR ( ws, ws + nDays - 1 ),
+				        "Day", LEFT ( FORMAT ( [Date], "ddd" ), 1 ) & UNICHAR ( 10 ) & FORMAT ( [Date], "d" ),
+				        "Week", "Week " & ( INT ( ( [Date] - ws ) / 7 ) + 1 )
+				    )
+
+	annotation PBI_Id = Days

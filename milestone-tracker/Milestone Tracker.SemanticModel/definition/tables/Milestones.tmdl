@@ -1,0 +1,233 @@
+/// One row per milestone: baseline, forecast and actual dates.
+table Milestones
+	lineageTag: 95f4f96e-3536-53f8-a0c6-d13716a23fd8
+
+	column 'Milestone ID'
+		dataType: string
+		lineageTag: c0044e91-4e35-53b7-ad84-632e45269798
+		summarizeBy: none
+		sourceColumn: Milestone ID
+
+	column Milestone
+		dataType: string
+		lineageTag: 569a253b-6a3f-57cb-b9ed-eb4094b67eda
+		summarizeBy: none
+		sourceColumn: Milestone
+
+	column Phase
+		dataType: string
+		lineageTag: 3943b9b2-f181-5185-b189-250dcf673ccf
+		summarizeBy: none
+		sourceColumn: Phase
+
+	column Area
+		dataType: string
+		lineageTag: 9bbfc9ed-62c8-566e-9af7-a1ae28c57241
+		summarizeBy: none
+		sourceColumn: Area
+
+	column Owner
+		dataType: string
+		lineageTag: 71fc3959-03a5-5b8a-b73d-f8af406d69cf
+		summarizeBy: none
+		sourceColumn: Owner
+
+	column 'Baseline Date'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 7f899e6f-6be6-55fd-a9d8-ffed3f94bc98
+		summarizeBy: none
+		sourceColumn: Baseline Date
+
+	column 'Forecast Date'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 5a24d9eb-699c-59dd-9aa7-bd81a5a15fdc
+		summarizeBy: none
+		sourceColumn: Forecast Date
+
+	column 'Actual Date'
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 94237ce5-4ebc-5790-bbe4-16add37109a9
+		summarizeBy: none
+		sourceColumn: Actual Date
+
+	/// Actual date when achieved, otherwise the forecast date.
+	column 'Finish Date' = IF ( NOT ISBLANK ( Milestones[Actual Date] ), Milestones[Actual Date], Milestones[Forecast Date] )
+		dataType: dateTime
+		formatString: dd mmm yy
+		lineageTag: 213854ff-c330-5835-9104-33bdf0f169f6
+		summarizeBy: none
+
+	/// Finish date minus baseline date, in calendar days. Positive = later than baseline.
+	column 'Slip Days' = INT ( Milestones[Finish Date] - Milestones[Baseline Date] )
+		dataType: int64
+		formatString: +0;-0;0
+		lineageTag: 4bdca35f-ef7b-5708-b4a2-6332b055ba80
+		summarizeBy: none
+
+	/// Complete = actual date filled. Late = open and forecast before the data date, or slip above the threshold. At risk = slip above 0. On track = the rest.
+	column Status =
+			VAR dd = MAX ( Settings[Data Date] )
+			VAR ddUsed = IF ( ISBLANK ( dd ), TODAY (), dd )
+			VAR th = MAX ( Settings[Late Threshold Days] )
+			VAR thUsed = IF ( ISBLANK ( th ), 30, th )
+			RETURN
+			    SWITCH ( TRUE (),
+			        NOT ISBLANK ( Milestones[Actual Date] ), "Complete",
+			        Milestones[Forecast Date] < ddUsed, "Late",
+			        Milestones[Slip Days] > thUsed, "Late",
+			        Milestones[Slip Days] > 0, "At risk",
+			        "On track" )
+		dataType: string
+		lineageTag: 2916d390-55d5-503f-a28e-4a4a1cb4cdd0
+		summarizeBy: none
+
+	column 'Status Order' = SWITCH ( Milestones[Status], "Late", 1, "At risk", 2, "On track", 3, "Complete", 4, 5 )
+		dataType: int64
+		isHidden
+		lineageTag: 578df249-8568-501e-bf05-144c45956c55
+		summarizeBy: none
+
+	column 'Status Color' = SWITCH ( Milestones[Status], "Late", "#D63A2F", "At risk", "#E08A00", "On track", "#339966", "Complete", "#005F5F", "#AAAAAA" )
+		dataType: string
+		isHidden
+		lineageTag: 0d70d9ca-c6c0-5c82-903c-3a68c716bded
+		summarizeBy: none
+
+	column 'Status Tint' = SWITCH ( Milestones[Status], "Late", "#F8D8D5", "At risk", "#FBE8C8", "On track", "#D8EEE1", "Complete", "#DCEBEB", "#FFFFFF" )
+		dataType: string
+		isHidden
+		lineageTag: 3614fb60-cc99-506c-9a51-df9b85d260cf
+		summarizeBy: none
+
+	column 'Baseline Order' = RANKX ( ALL ( Milestones ), Milestones[Baseline Date], , ASC, DENSE )
+		dataType: int64
+		isHidden
+		lineageTag: 6fe01fb8-ddea-5bd3-baff-57b234545f23
+		summarizeBy: none
+
+	/// Milestone ID and name, sorted by baseline date.
+	column 'Milestone Label' = Milestones[Milestone ID] & "  " & Milestones[Milestone]
+		dataType: string
+		lineageTag: 46bacf63-ace6-5494-900c-207a698fb4d6
+		summarizeBy: none
+		sortByColumn: 'Baseline Order'
+
+	/// Number of milestones.
+	measure 'Milestone Count' = COUNTROWS ( Milestones )
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 9cc821f3-a3d3-5f46-8868-621fa2763795
+
+	/// Number of milestones with status Complete.
+	measure Completed = CALCULATE ( COUNTROWS ( Milestones ), Milestones[Status] = "Complete" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 0c9de7a3-82c7-5a05-8e2c-d81dd8c1302e
+
+	/// Number of milestones with status On track.
+	measure 'On track' = CALCULATE ( COUNTROWS ( Milestones ), Milestones[Status] = "On track" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: acad4c41-aca2-5b44-a226-b203c198dbf9
+
+	/// Number of milestones with status At risk.
+	measure 'At risk' = CALCULATE ( COUNTROWS ( Milestones ), Milestones[Status] = "At risk" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 7dde0560-c646-5265-8c4b-bc88d2ad5611
+
+	/// Number of milestones with status Late.
+	measure Late = CALCULATE ( COUNTROWS ( Milestones ), Milestones[Status] = "Late" ) + 0
+		formatString: 0
+		displayFolder: KPI
+		lineageTag: 0b1a569f-e137-5244-8f6b-5fa2174381af
+
+	/// Average slip in days of the milestones not yet achieved.
+	measure 'Average Slip Open' = AVERAGEX ( FILTER ( Milestones, ISBLANK ( Milestones[Actual Date] ) ), Milestones[Slip Days] )
+		formatString: +0.0;-0.0;0.0
+		displayFolder: KPI
+		lineageTag: 710bdf31-09d9-5fae-8d43-ea6db7d327da
+
+	/// Slip of the milestone in context, in days.
+	measure 'Slip (days)' = MAX ( Milestones[Slip Days] )
+		formatString: +0;-0;0
+		displayFolder: Chart
+		lineageTag: 06eb4e52-dfb8-5131-93e1-86a22a71fcc9
+
+	/// Status color of the milestone in context.
+	measure 'Slip Bar Color' = MAX ( Milestones[Status Color] )
+		displayFolder: Format
+		lineageTag: 2a6cc592-d3d0-5013-8de5-bfa7c499c5c8
+
+	/// Light status color for table cells.
+	measure 'Status Tint Color' = MAX ( Milestones[Status Tint] )
+		displayFolder: Format
+		lineageTag: 9de38ff1-2c7d-5361-9e04-f33dae4237d1
+
+	/// Status color for text.
+	measure 'Status Font Color' = MAX ( Milestones[Status Color] )
+		displayFolder: Format
+		lineageTag: 860c5db0-5341-501f-aa6e-e3c01a6b5366
+
+	/// Milestone chart cell: filled diamond = forecast or actual month, hollow diamond = baseline month, bar = months of slip in between.
+	measure 'Timeline Mark' =
+			VAR ms = MIN ( Months[Month Start] )
+			VAR me = EOMONTH ( ms, 0 )
+			VAR bl = MAX ( Milestones[Baseline Date] )
+			VAR fi = MAX ( Milestones[Finish Date] )
+			VAR inB = bl >= ms && bl <= me
+			VAR inF = fi >= ms && fi <= me
+			VAR lo = MIN ( bl, fi )
+			VAR hi = MAX ( bl, fi )
+			VAR between = ms > lo && me < hi
+			RETURN
+			    IF ( HASONEVALUE ( Milestones[Milestone ID] ),
+			        SWITCH ( TRUE (), inF, UNICHAR ( 9670 ), inB, UNICHAR ( 9671 ), between, UNICHAR ( 9644 ), "" ) )
+		displayFolder: Chart
+		lineageTag: aee05c40-5d6a-5695-9c0e-722fef777043
+
+	/// Font color of the milestone chart cell.
+	measure 'Timeline Color' =
+			VAR ms = MIN ( Months[Month Start] )
+			VAR me = EOMONTH ( ms, 0 )
+			VAR bl = MAX ( Milestones[Baseline Date] )
+			VAR fi = MAX ( Milestones[Finish Date] )
+			VAR inB = bl >= ms && bl <= me
+			VAR inF = fi >= ms && fi <= me
+			VAR lo = MIN ( bl, fi )
+			VAR hi = MAX ( bl, fi )
+			VAR between = ms > lo && me < hi
+			RETURN
+			    SWITCH ( TRUE (),
+			        inF, MAX ( Milestones[Status Color] ),
+			        inB, "#8A9494",
+			        between && fi > bl, "#EBA8A1",
+			        between, "#9CCFB0",
+			        "#FFFFFF" )
+		displayFolder: Format
+		lineageTag: 13505e1a-e9cc-56d1-9f3f-c13e7481865f
+
+	/// Highlights the month that contains the data date.
+	measure 'Timeline Back' =
+			VAR ms = MIN ( Months[Month Start] )
+			VAR dd = [Data Date Used]
+			RETURN IF ( dd >= ms && dd <= EOMONTH ( ms, 0 ), "#E6F2F2", "#FFFFFF" )
+		displayFolder: Format
+		lineageTag: 4a2e50b7-8130-5ee5-904b-517891ded0e5
+
+	partition Milestones = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFile), null, true),
+				    Sheet = Source{[Item="Milestones",Kind="Sheet"]}[Data],
+				    Headers = Table.PromoteHeaders(Sheet, [PromoteAllScalars=true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"Milestone ID", type text}, {"Milestone", type text}, {"Phase", type text}, {"Area", type text}, {"Owner", type text}, {"Baseline Date", type date}, {"Forecast Date", type date}, {"Actual Date", type date}}),
+				    Clean = Table.SelectRows(Typed, each [Milestone ID] <> null and [Milestone ID] <> "")
+				in
+				    Clean
+
+	annotation PBI_Id = Milestones
